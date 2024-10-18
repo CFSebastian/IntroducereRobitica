@@ -25,3 +25,4 @@ Dacă oricând de la pornirea încărcării până la finalizarea acesteia este 
   # 3.POZE
   # 4.VIDEO
   # 5.SCHEMA ELECTRICA
+  ![plot](./media/Grand%20Luulia.pdf)
