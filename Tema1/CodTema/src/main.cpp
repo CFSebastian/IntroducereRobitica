@@ -53,6 +53,7 @@ void setup() {
 
 void loop() {
   if(liber) {// cerificare daca statie este folosita
+    // setare ledRGB pentru atunci cand este folosita statia
     digitalWrite(LEDG,LOW);
     digitalWrite(LEDR,HIGH);
     digitalWrite(LEDB,LOW);
@@ -60,11 +61,11 @@ void loop() {
     unsigned int timePast=curentTime-startTime;// calcularea duratei de timp de la inceperea incarcarii
 
     // if si else pentru a verifica cat la suta e incarcata bateria (25%, 50%, 75%, 100%)
-    if(12000 < timePast) {
+    if(12000 < timePast) {// 100% -- anumatie de terminare
       animatieEnd();
       liber=0;
     } 
-    else if(9000 < timePast) {
+    else if(9000 < timePast) {// 75% - 3 aprinse so 1 clipeste
       digitalWrite(LED1,HIGH);
       digitalWrite(LED2,HIGH);
       digitalWrite(LED3,HIGH);
@@ -73,7 +74,7 @@ void loop() {
       digitalWrite(LED4,LOW);
       _delay_ms(ledDelay);
     } 
-    else if(6000 < timePast) {
+    else if(6000 < timePast) {// 50% - 2 aprinse so 1 clipeste
       digitalWrite(LED1,HIGH);
       digitalWrite(LED2,HIGH);
       digitalWrite(LED3,HIGH);
@@ -81,14 +82,14 @@ void loop() {
       digitalWrite(LED3,LOW);
       _delay_ms(ledDelay);
     } 
-    else if(3000 < timePast) {
+    else if(3000 < timePast) {// 25% - 1 aprinse so 1 clipeste
       digitalWrite(LED1,HIGH);
       digitalWrite(LED2,HIGH);
       _delay_ms(ledDelay);
       digitalWrite(LED2,LOW);
       _delay_ms(ledDelay);
     } 
-    else {
+    else {// 0% - 1 clipeste
       digitalWrite(LED1,HIGH);
       _delay_ms(ledDelay);
       digitalWrite(LED1,LOW);
@@ -96,13 +97,13 @@ void loop() {
     }
     /*Cod de debouncing pentru buonul de off folosita in loop*/
     int cBTN2 = digitalRead(BTN2);// memoreaza starea curenta a butonului de off
-    if(cBTN2 != lsBTN2){
+    if(cBTN2 != lsBTN2){// verificam daca starea butonului s a schimbat pntreu a incepe numerotare
       sdBTN2=millis();
     }
-    if((millis()-sdBTN2) >=1000){
-      if(cBTN2 != stBTN2) {
+    if((millis()-sdBTN2) >=1000){// verificam daca a trecut o secunda de la inceputul apasarii
+      if(cBTN2 != stBTN2) {// daca starea e diferita schimbam starea
         stBTN2 = cBTN2;
-        if(!stBTN2) {// se activeaza in butonul inca este apasat
+        if(!stBTN2) {// se activeaza in butonul daca inca este apasat
           animatieEnd();
           liber=0;
         }
@@ -112,6 +113,7 @@ void loop() {
     
   }
   else {
+    //setare ledRGB petru atunci cand nu e folosita statia
     digitalWrite(LEDG,HIGH);
     digitalWrite(LEDR,LOW);
     digitalWrite(LEDB,LOW);
