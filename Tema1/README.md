@@ -27,7 +27,7 @@
   ![plot](./media/20241021_111759.jpg)
   ![plot](./media/20241021_111751.jpg)
   # 4.VIDEO
-  https://youtu.be/zDlavsIdSk8
+  **[Link catre video tema](https://youtu.be/zDlavsIdSk8)**
   # 5.SCHEMA ELECTRICA
   ![plot](./media/T1.3.PNG)
   ![plot](./media/T1.4.PNG)
