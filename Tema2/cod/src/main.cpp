@@ -15,6 +15,11 @@ unsigned long lastDebounceTime = 0;
 unsigned long debounceDelay = 50;
 
 // game variables
+const int WordNumber = 15;
+const char *dictionar[WordNumber] = {
+    "ember", "drift", "harbor", "willow", "cascade", "summit", "glimmer",
+    "meadow", "echo", "fern", "breeze", "prism", "velvet", "quiver", "lantern"};
+
 bool roundStart = false;
 volatile bool btnStart = 1;
 int wordInterval = 10000;
@@ -28,11 +33,6 @@ bool difficultyChanged = true;
 unsigned int currentChar = 0;
 int score = 0;
 bool firstWord;
-
-const int WordNumber = 15;
-const char *dictionar[WordNumber] = {
-    "ember", "drift", "harbor", "willow", "cascade", "summit", "glimmer",
-    "meadow", "echo", "fern", "breeze", "prism", "velvet", "quiver", "lantern"};
 
 // set the RGB LED colors
 void setLedColor(bool red, bool green, bool blue)
