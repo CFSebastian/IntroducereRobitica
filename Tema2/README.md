@@ -8,8 +8,13 @@
   * 9x Rezistoare (3x 330ohm, 2x 1Kohm)
   * Fire
   # 3.POZE
+  ![plot](./media/20241104_223137.jpg)
+  ![plot](./media/20241104_223222.jpg)
+  ![plot](./media/20241104_223300.jpg)
+  ![plot](./media/20241104_223316.jpg)
+  ![plot](./media/20241104_223807.jpg)
   # 4.VIDEO
-  **[Link catre video tema](https://youtu.be)**
+  **[Link catre video tema](https://www.youtube.com/watch?v=-VH8JQKSR5E)**
   # 5.SCHEMA ELECTRICA
   ![plot](./media/T2.1.PNG)
   ![plot](./media/T2.2.PNG)
