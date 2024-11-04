@@ -1,168 +1,214 @@
 #include <Arduino.h>
-#include <avr/interrupt.h>
+#include <string.h>
 
-// pini
-#define BTN_START 2
-#define BTN_DIFFICULTY 3
+// define the pins
+#define BTN_START 3
+#define BTN_DIFFICULTY 2
 #define LED_R 6
 #define LED_G 4
 #define LED_B 5
 
-// Definește pinii și variabilele
-const int redPin = 6;
-const int greenPin = 4;
-const int bluePin = 5;
-const int startButtonPin = 2;
-const int difficultyButtonPin = 3;
-
-volatile bool isGameActive = false;
-volatile int difficulty = 0; // 0: Easy, 1: Medium, 2: Hard
+//debounce variables for the dificulty button
+int buttonState;            
+int lastButtonState = HIGH; 
 unsigned long lastDebounceTime = 0;
-const long debounceDelay = 50;
+unsigned long debounceDelay = 50;
+ 
+// game variables
+bool roundStart = false; 
+volatile bool btnStart=1;
+int wordInterval=10000;
+volatile unsigned long currentMillis;
+int currentWord;
+volatile unsigned long previousMillis ;
+volatile unsigned long previousWordMillis;
+bool mistake;
+int difficulty = 0; //0-easy, 1-medium, 2-hard
+bool difficultyChanged = true;
+unsigned int currentChar=0;
+int score = 0;
+bool firstWord;
 
-const unsigned long roundTime = 30000; // 30 secunde
-unsigned long startTime;
-int correctWordsCount = 0;
-String words[] = {"car", "bike", "plane", "boat", "train"};
-String currentWord;
-bool wordCorrect = true;
+const int WordNumber=15;
+const char* dictionar[WordNumber] = {
+        "ember", "drift", "harbor", "willow", "cascade", "summit", "glimmer",
+        "meadow", "echo", "fern", "breeze", "prism", "velvet", "quiver", "lantern"
+    };
 
-unsigned long wordInterval[] = {2000, 1500, 1000}; // Easy, Medium, Hard
-unsigned long lastWordTime = 0;
+// set the RGB LED colors
+void setLedColor(bool red, bool green, bool blue) {
+  digitalWrite(LED_R, red);
+  digitalWrite(LED_G, green);
+  digitalWrite(LED_B, blue);
+}
 
-void setup() {
-    Serial.begin(9600);
-
-    pinMode(LED_R,OUTPUT);
-    pinMode(LED_B,OUTPUT);
-    pinMode(LED_G,OUTPUT);
+// set the variables for the beginigg of the round and play the animation
+void begineRound(){
+  roundStart = true;
+  setLedColor(1,1,1);
+  for(int i = 3;i > 0; i--) {
+    Serial.println(i);
+    setLedColor(0,0,0);
+    delay(500);
     setLedColor(1,1,1);
+    delay(500);
+  }
+  int currentMillis = millis();
+  int previousMillis = currentMillis;
+  setLedColor(0,1,0);
+  firstWord=true;
+  score=0;  
+}
+void round(){
+  currentMillis = millis();
+  // end round if the time is over 30 seconds
+  if (currentMillis - previousMillis >= 30000) {
+    roundStart = false;
+    mistake = false;
+    Serial.println("Round ended");
+    Serial.print("Score: ");
+    Serial.println(score);
+    previousWordMillis = currentMillis;
+    return;
+  }
+  bool skipWord = false;
+  // determinate if the letter that is read from the serial is the expected input
+    if (Serial.available()) {
+        char letter = Serial.read();
+        if (letter == 8) { // 8 is ASCII code for backspace
+            mistake = false;
+            Serial.println("Backspace");
+        }
+        else if (letter == dictionar[currentWord][currentChar] && !mistake) {
+            Serial.println(letter);
+            currentChar++;
+            //Verify complition if the word
+            if (currentChar == strlen(dictionar[currentWord])) {
+                Serial.print("+1 for: ");
+                Serial.println(dictionar[currentWord]);
+                score++;
+                skipWord = true;
+                currentChar = 0;
+                currentWord = random(WordNumber);
+                previousWordMillis = currentMillis; 
+            }
+        } 
+        else {
+            Serial.print(letter);
+            Serial.print(" expected: ");
+            Serial.println(dictionar[currentWord][currentChar]);
+            mistake = true;
+        }
+    }
+    // update if its the start of the round or a word was completed befor the time limit
+    if(firstWord) {
+        currentWord = random(WordNumber);
+        Serial.println(dictionar[currentWord]);
+        previousWordMillis = currentMillis;
+        firstWord=false;
+        }
+    else if(currentMillis-previousWordMillis >= wordInterval || skipWord) {
+        currentWord = random(WordNumber);
+        Serial.println(dictionar[currentWord]);
+        previousWordMillis = currentMillis;
+        currentChar = 0;
+        mistake = false;
+    }
+
+
+  if(mistake) { 
+    setLedColor(1,0,0);
+  }
+  else {
+    mistake = false;
+    setLedColor(0,1,0);
+  }
+}
+
+// select the dificulty, ie. the speed at which words apear
+void selectDificulty(){
+    int reading = digitalRead(BTN_DIFFICULTY);
+    if (reading != lastButtonState) {
+      lastDebounceTime = millis();
+    }
+    if ((millis() - lastDebounceTime) > debounceDelay) {
+      if (reading != buttonState) {
+        buttonState = reading;
+        if (buttonState == LOW) {
+          difficultyChanged = true;
+          difficulty++;
+          difficulty = difficulty % 3;
+        }
+      }
+    }
     
-    pinMode(BTN_START,INPUT_PULLUP);
-    pinMode(BTN_DIFFICULTY,INPUT_PULLUP);
+    lastButtonState = reading;
 
-    pinMode(redPin, OUTPUT);
-    pinMode(greenPin, OUTPUT);
-    pinMode(bluePin, OUTPUT);
-    setLEDColor(255, 255, 255); // Alb pentru modul de repaus
+    if(difficultyChanged) {
+      delay(200);
+      difficultyChanged = false;
+      switch (difficulty) {
+        case 0:
+          wordInterval = 10000;
+          Serial.println("Easy mode on!");
+          break;
+        case 1:
+          wordInterval = 5000;
+          Serial.println("Medium mode on!");
+          break;
+        case 2:
+          wordInterval = 3000;
+          Serial.println("Hard mode on!");
+          break;
+      }
+    }
+}
 
-    pinMode(startButtonPin, INPUT_PULLUP);
-    pinMode(difficultyButtonPin, INPUT_PULLUP);
-    attachInterrupt(digitalPinToInterrupt(startButtonPin), startStopButtonPress, FALLING);
-    attachInterrupt(digitalPinToInterrupt(difficultyButtonPin), difficultyButtonPress, FALLING);
+//Handle interupt
+void changeStartButton() {
+  btnStart = !btnStart;
+}
+void setup() {
+  
+  pinMode(LED_R,OUTPUT);
+  pinMode(LED_B,OUTPUT);
+  pinMode(LED_G,OUTPUT);
+  setLedColor(1,1,1);
+  
+  pinMode(BTN_START,INPUT_PULLUP);
+  pinMode(BTN_DIFFICULTY,INPUT_PULLUP);
 
-    randomSeed(analogRead(0)); // Inițializare random pentru alegerea cuvintelor
+  Serial.begin(9800);//set baud rate 
+
+  randomSeed(analogRead(0)); //Random initialization for choosing words
+
+  attachInterrupt(digitalPinToInterrupt(BTN_START),changeStartButton,FALLING);//interupts for BTN_START (PD3/INT2)
+
 }
 
 void loop() {
-    if (isGameActive) {
-        if (millis() - startTime >= roundTime) {
-            endGame();
-            return;
-        }
-
-        if (millis() - lastWordTime >= wordInterval[difficulty] || wordCorrect) {
-            showNextWord();
-            wordCorrect = false;
-        }
-
-        if (Serial.available()) {
-            String inputWord = Serial.readStringUntil('\n'); // Citire input din Serial
-            inputWord.trim();  // Elimină spațiile albe înainte de comparație
-            if (inputWord == currentWord) {  // Compară cuvântul introdus cu cel curent
-                wordCorrect = true;
-                correctWordsCount++;
-                setLEDColor(0, 255, 0); // Verde pentru corect
-                setLedColor(0,1,0);
-            } else {
-                setLEDColor(255, 0, 0); // Roșu pentru greșit
-                setLedColor(1,0,0);
-            }
-        }
+  currentMillis = millis();
+  if(roundStart){
+    // on round logic
+    if(btnStart == LOW){
+      Serial.println("Round OFF");
+      btnStart = 1;
+      roundStart = false;
+      setLedColor(1,1,1);
     }
-}
+    round();
 
-
-void startStopButtonPress() {
-    if ((millis() - lastDebounceTime) > debounceDelay) {
-        if (!isGameActive) {
-            startGame();
-        } else {
-            endGame();
-        }
-        lastDebounceTime = millis();
-    }
-}
-
-void difficultyButtonPress() {
-    if (!isGameActive && (millis() - lastDebounceTime) > debounceDelay) {
-        difficulty = difficulty % 3;
-        Serial.print("Mode: ");
-        switch (difficulty) {
-            case 0:
-              Serial.println("Easy mode on!");
-              break;
-            case 1: 
-              Serial.println("Medium mode on!"); 
-              break;
-            case 2: 
-              Serial.println("Hard mode on!"); 
-              break;
-            default:
-              Serial.println("?! mode on!");
-              break;
-        }
-        lastDebounceTime = millis();
-    }
-}
-
-void startGame() {
-    isGameActive = true;
-    correctWordsCount = 0;
-    startTime = millis();
-
-    for (int i = 3; i > 0; i--) {
-        Serial.println(i);
-        setLEDColor(255, 255, 255);
-        setLedColor(1,1,1);
-        delay(1000);//nu merge
-    }
-
-    showNextWord();
-}
-
-void endGame() {
-    isGameActive = false;
-    setLEDColor(255, 255, 255); // Revină la alb în repaus
+  }
+  else {
+    // off round logic
+  selectDificulty();
+  if(btnStart == LOW ) {
+    Serial.println("Round On");
+    btnStart = 1;
+    previousMillis = currentMillis;
+    previousWordMillis = currentMillis;
+    begineRound();
+  }
     setLedColor(1,1,1);
-    Serial.print("Runda s-a incheiat. Cuvinte corecte: ");
-    Serial.println(correctWordsCount);
+  }
 }
-
-void showNextWord() {
-    int index = random(0, sizeof(words) / sizeof(words[0]));
-    currentWord = words[index];
-    Serial.print("Scrie: ");
-    Serial.println(currentWord);
-    int a=sizeof(words);
-    int b=sizeof(words[0]);
-    Serial.print("----");
-    Serial.print(a);
-    Serial.print("--0--");
-    Serial.print(b);
-    lastWordTime = millis();
-    setLEDColor(0, 255, 0); // Verde pentru start cuvânt nou
-    setLedColor(0,1,0);
-}
-
-void setLEDColor(int red, int green, int blue) {
-    analogWrite(redPin, red);
-    analogWrite(greenPin, green);
-    analogWrite(bluePin, blue);
-}
-void setLedColor(bool red, bool green, bool blue) {
-    digitalWrite(LED_R, red);
-    digitalWrite(LED_G, green);
-    digitalWrite(LED_B, blue);
-}
-
