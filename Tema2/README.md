@@ -19,3 +19,8 @@
   * 9x Rezistoare (3x 220ohm, 4x330ohm, 2x 1Kohm)
   * 14x Fire
   # 3.POZE
+  # 4.VIDEO
+  **[Link catre video tema](https://youtu.be)**
+  # 5.SCHEMA ELECTRICA
+  ![plot](./media/T2.1.PNG)
+  ![plot](./media/T2.2.PNG)
