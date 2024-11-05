@@ -61,6 +61,7 @@ void begineRound()
     firstWord = true;
     score = 0;
 }
+// The logic for a game round 
 void round()
 {
     currentMillis = millis();
