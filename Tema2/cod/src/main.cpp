@@ -15,10 +15,10 @@ unsigned long lastDebounceTime = 0;
 unsigned long debounceDelay = 50;
 
 // game variables
-const int WordNumber = 15;
+const int WordNumber = 16;
 const char *dictionar[WordNumber] = {
     "ember", "drift", "harbor", "willow", "cascade", "summit", "glimmer",
-    "meadow", "echo", "fern", "breeze", "prism", "velvet", "quiver", "lantern"};
+    "meadow", "echo", "fern", "breeze", "prism", "velvet", "quiver", "lantern", "ripple"};
 
 bool roundStart = false;
 volatile bool btnStart = 1;
