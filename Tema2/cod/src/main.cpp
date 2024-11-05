@@ -214,7 +214,7 @@ void loop()
         // on round logic
         if (btnStart == LOW)
         {
-            Serial.println("Round OFF");
+            Serial.println("OFF");
             btnStart = 1;
             roundStart = false;
             setLedColor(1, 1, 1);
@@ -227,7 +227,6 @@ void loop()
         selectDificulty();
         if (btnStart == LOW)
         {
-            Serial.println("Round On");
             btnStart = 1;
             previousMillis = currentMillis;
             previousWordMillis = currentMillis;
