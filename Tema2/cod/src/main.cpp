@@ -7,6 +7,7 @@
 #define LED_R 6
 #define LED_G 4
 #define LED_B 5
+#define BAUD_RATE 9800
 
 // debounce variables for the dificulty button
 int buttonState;
@@ -15,6 +16,10 @@ unsigned long lastDebounceTime = 0;
 unsigned long debounceDelay = 50;
 
 // game variables
+const int roundTime = 30000;
+const int easyWordInterval = 10000;
+const int mediumWordInterval = 5000;
+const int hardWordInterval = 3000;
 const int WordNumber = 16;
 const char *dictionar[WordNumber] = {
     "ember", "drift", "harbor", "willow", "cascade", "summit", "glimmer",
@@ -66,7 +71,7 @@ void round()
 {
     currentMillis = millis();
     // end round if the time is over 30 seconds
-    if (currentMillis - previousMillis >= 30000)
+    if (currentMillis - previousMillis >= roundTime)
     {
         roundStart = false;
         mistake = false;
@@ -142,7 +147,7 @@ void round()
 void selectDificulty()
 {
     int reading = digitalRead(BTN_DIFFICULTY);
-    if (reading != lastButtonState)
+    if (reading != lastButtonState)// asta inportant pentru debouncing pentru interupt
     {
         lastDebounceTime = millis();
     }
@@ -169,15 +174,15 @@ void selectDificulty()
         switch (difficulty)
         {
         case 0:
-            wordInterval = 10000;
+            wordInterval = easyWordInterval;
             Serial.println("Easy mode on!");
             break;
         case 1:
-            wordInterval = 5000;
+            wordInterval = mediumWordInterval;
             Serial.println("Medium mode on!");
             break;
         case 2:
-            wordInterval = 3000;
+            wordInterval = hardWordInterval;
             Serial.println("Hard mode on!");
             break;
         }
@@ -200,7 +205,7 @@ void setup()
     pinMode(BTN_START, INPUT_PULLUP);
     pinMode(BTN_DIFFICULTY, INPUT_PULLUP);
 
-    Serial.begin(9800); // set baud rate
+    Serial.begin(BAUD_RATE); // set baud rate
 
     randomSeed(analogRead(0)); // Random initialization for choosing words
 
