@@ -1,13 +1,9 @@
 #include <Arduino.h>
-#include <SPI.h>
+#include <SPI.h> // Include librăria SPI pentru comunicare SPI
 
-// Include bibliotecile necesare:
-#include <LiquidCrystal.h>
-#include <Servo.h>
+#define BAUD_RATE 9600 // Setează viteza de comunicare serială
 
-#define BAUD_RATE 9600 // Rata de baud pentru comunicare serială
-
-// Definirea pinilor pentru LED-uri RGB controlate prin SPI
+// Definire pinii pentru LED-urile RGB (valori SPI de trimis/recepționat)
 #define SPI_RGB1_R 1
 #define SPI_RGB1_G 2
 #define SPI_RGB1_B 3
@@ -15,7 +11,7 @@
 #define SPI_RGB2_G 5
 #define SPI_RGB2_B 6
 
-// Definirea pinilor pentru butoane controlate prin SPI
+// Definire pinii pentru butoanele RGB (valori SPI)
 #define SPI_BTN1_R 11
 #define SPI_BTN1_G 12
 #define SPI_BTN1_B 13
@@ -23,256 +19,254 @@
 #define SPI_BTN2_G 15
 #define SPI_BTN2_B 16
 
-// Comenzi pentru joc
-#define GAME_START 21
-#define GAME_STOP 20
-#define IGNORE 23
+#define GAME_START 21 // Comandă pentru pornirea jocului
+#define GAME_STOP 20  // Comandă pentru oprirea jocului
+#define IGNORE 23     // Valoare pentru ignorare
 
-// Definirea duratelor de timp în milisecunde
-#define SECOND 1000 // O secundă în milisecunde
-#define GAME_DURATION 80 // Durata jocului în secunde
-#define ROND_DURATION 5000 // Durata unei runde în milisecunde
-#define END_ROTATION 180
-#define START_ROTATION 0
-#define ROTATION_DISTANCE 45
+// Definire pinii pentru controlul LED-urilor RGB
+#define LED_RGB1_R 5
+#define LED_RGB1_G 4
+#define LED_RGB1_B 3
+#define LED_RGB2_R 8
+#define LED_RGB2_G 7
+#define LED_RGB2_B 6
 
-// Structură pentru jucători care conține numele și punctele
-struct Players {
-  unsigned int points; // Puncte jucător
-  String name; // Nume jucător
-} player[2]; // Declarație pentru doi jucători
+// Definire pinii pentru LED-uri simple (dreapta și stânga)
+#define LED_P1_R A1 // LED dreapta - roșu
+#define LED_P1_G A2 // LED dreapta - verde
+#define LED_P1_B A3 // LED dreapta - albastru
+#define LED_P2_R 2  // LED stânga - roșu
+#define LED_P2_G A4 // LED stânga - verde
+#define LED_P2_B A5 // LED stânga - albastru
 
-bool gameOn = 0; // Starea jocului (pornit/oprit)
-int playerRouond = 0; // Jucătorul curent în rundă
-int lastPlayerRound = 0; // Ultimul jucător din rundă
-int correctRgb = 0; // Valoarea RGB corectă pentru rundă
-unsigned long lastRoundTime = 0; // Timpul de start al ultimei runde
-unsigned long currentRoundTime = 0; // Timpul curent
-unsigned long gameStartTime = 0; // Timpul de start al jocului
-int randomRgb; // Culoare RGB aleasă aleatoriu pentru rundă
-byte masterSend = IGNORE, masteReceive; // Variabile pentru comunicare SPI
+// Pin pentru citirea butoanelor analogice
+#define BUTTONS_PIN A0
 
-// Funcție pentru o întârziere bazată pe millis()
-void delayMillis(unsigned long milliseconds) {
+// Valorile maxime de tensiune (cu marja de +40 pentru interferențe LED-uri)
+#define BTN_V_P1_R 2000
+#define BTN_V_P1_G 500
+#define BTN_V_P1_B 390
+#define BTN_V_P2_R 130
+#define BTN_V_P2_G 195
+#define BTN_V_P2_B 275
+
+volatile boolean received;       // Variabilă pentru a indica dacă un mesaj SPI a fost primit
+volatile byte slaveReceived;     // Variabilă pentru valoarea primită de la master
+volatile byte slaveSend = IGNORE; // Valoarea de trimis către master
+int x;
+bool gameOn = 0;                // Starea jocului (0 = oprit, 1 = pornit)
+int correctLed = 0;             // LED-ul corect care trebuie ghicit
+int collorGuessed = IGNORE;     // Culoarea ghicită
+int rgbLed;
+int parasitVoltage = 50;        // Valoare pentru filtrarea tensiunii (0 - ~36)
+
+// Variabile pentru debouncing-ul butoanelor
+int buttonState;
+int lastButtonState = 0;
+unsigned long lastDebounceTime = 0;
+unsigned long debounceDelay = 50;
+
+// Funcție pentru delay
+void delayMillis(unsigned long milliseconds)
+{
   unsigned long currentTimeDelay = millis();
   unsigned long goalTimeDelay = currentTimeDelay + milliseconds;
-
   while (millis() <= goalTimeDelay);
 }
 
-////////////////////////////////////// AFIȘAJ LCD ///////////////////////////
-
-// Pini pentru LCD
-#define RS 9
-#define EN 8
-#define D4 5
-#define D5 4
-#define D6 3
-#define D7 2
-
-// Definire caractere personalizate pentru afișajul LCD (trofeu și săgeată)
-byte trophy[8] = {
-  0b00100,
-  0b11111,
-  0b10101,
-  0b11111,
-  0b01110,
-  0b00100,
-  0b00100,
-  0b01110
-};
-byte arrow[8] = {
-  0b00000,
-  0b00100,
-  0b00110,
-  0b11111,
-  0b00110,
-  0b00100,
-  0b00000,
-  0b00000
-};
-
-// Inițializare LCD
-LiquidCrystal lcd(RS, EN, D4, D5, D6, D7);
-
-// Variabilă pentru timpul de actualizare a afișajului
-unsigned long lastTime = 0;
-
-// Funcție pentru afișarea informațiilor jocului pe LCD
-void displayInGame(Players p1, Players p2, int stateGame) {
-  Serial.print(p1.name);
-  Serial.print("----");
-  Serial.print(p1.points);
-  Serial.print("----");
-  Serial.print(p2.name);
-  Serial.print("----");
-  Serial.println(p2.points);
-  lcd.clear();
-  lcd.setCursor(0, 0);
-  switch (stateGame) {
+// Funcție pentru setarea culorii LED-urilor
+void setLedColor(int ledGroup, bool red, bool green, bool blue)
+{
+  switch (ledGroup)
+  {
   case 0:
-    lcd.print("Joc de Reflex");
+    digitalWrite(LED_RGB1_R, red);
+    digitalWrite(LED_RGB1_G, green);
+    digitalWrite(LED_RGB1_B, blue);
     break;
   case 1:
-    lcd.write(byte(1)); // Afișează săgeata
-    lcd.print(p1.name);
-    lcd.print(":");
-    lcd.print(p1.points);
-    lcd.setCursor(0, 1);
-    lcd.print(p2.name);
-    lcd.print(": ");
-    lcd.print(p2.points);
+    digitalWrite(LED_RGB2_R, red);
+    digitalWrite(LED_RGB2_G, green);
+    digitalWrite(LED_RGB2_B, blue);
     break;
   case 2:
-    lcd.print(p1.name);
-    lcd.print(":");
-    lcd.print(p1.points);
-    lcd.setCursor(0, 1);
-    lcd.write(byte(1));
-    lcd.print(p2.name);
-    lcd.print(":");
-    lcd.print(p2.points);
+    digitalWrite(LED_P1_R, red);
+    digitalWrite(LED_P1_G, green);
+    digitalWrite(LED_P1_B, blue);
     break;
   case 3:
-    if (p1.points > p2.points) {
-      lcd.write(byte(0)); // Afișează trofeul
-      lcd.print(p1.name);
-      lcd.print(":");
-      lcd.print(p1.points);
-      lcd.setCursor(0, 1);
-      lcd.print(p2.name);
-      lcd.print(":");
-      lcd.print(p2.points);
-    } else if (p1.points < p2.points) {
-      lcd.print(p1.name);
-      lcd.print(p1.points);
-      lcd.print(":");
-      lcd.setCursor(0, 1);
-      lcd.write(byte(0));
-      lcd.print(p2.name);
-      lcd.print(":");
-      lcd.print(p2.points);
-    } else if (p1.points == p2.points) {
-      lcd.write(byte(0));
-      lcd.print(p1.name);
-      lcd.print(":");
-      lcd.print(p1.points);
-      lcd.setCursor(0, 1);
-      lcd.write(byte(0));
-      lcd.print(p2.name);
-      lcd.print(":");
-      lcd.print(p2.points);
-    }
+    digitalWrite(LED_P2_R, red);
+    digitalWrite(LED_P2_G, green);
+    digitalWrite(LED_P2_B, blue);
     break;
-  default:
-    lcd.print("ceva?!");
+  default: // Dacă apare o eroare
+    digitalWrite(LED_RGB1_R, 1);
+    digitalWrite(LED_RGB1_G, 1);
+    digitalWrite(LED_RGB1_B, 1);
+    digitalWrite(LED_RGB2_R, 1);
+    digitalWrite(LED_RGB2_G, 1);
+    digitalWrite(LED_RGB2_B, 1);
     break;
   }
 }
 
-// Funcție pentru inițializarea LCD-ului
-void initiateLCD() {
-  lcd.begin(16, 2);
-  lcd.createChar(0, trophy);
-  lcd.createChar(1, arrow);
-}
-
-// Funcție pentru afișarea unei numărători inverse
-void displayCountdown() {
-  lcd.clear();
-  for (int i = 3; i > 0; i--) {
-    unsigned long currentTimeLcd = millis();
-    unsigned long goalTime = currentTimeLcd + SECOND;
-    while (millis() <= goalTime);
-    lcd.setCursor(0, 0);
-    lcd.print(i);
-    Serial.println(i);
+// Funcție pentru debouncing-ul unui buton
+int debounce(uint8_t btn)
+{
+  int btnValue;
+  int reading = analogRead(btn);
+  if (reading != lastButtonState) {
+    lastDebounceTime = millis();
   }
-  lcd.clear();
-}
-
-//////////////////////////////// Servomotor ////////////////////////////////
-Servo myservo; // Obiect servo pentru controlul unui servomotor
-unsigned long currentServoTime = 0;
-unsigned long lastServoTime = 0;
-unsigned int pos = 0; // Variabilă pentru stocarea poziției servomotorului
-
-// Funcție pentru inițializarea servomotorului
-void servoSetup() {
-  myservo.attach(6);
-}
-
-// Funcție pentru controlul servomotorului în timpul jocului
-void servoOnGame(int gameDurationServo) {
-  unsigned long goalTime = currentServoTime + gameDurationServo * SECOND * ROTATION_DISTANCE / END_ROTATION;
-  if (millis() >= goalTime) {
-    currentServoTime = millis();
-    pos += ROTATION_DISTANCE;
-    if (pos > END_ROTATION) {
-      pos = START_ROTATION;
+  if ((millis() - lastDebounceTime) > debounceDelay)
+  {
+    if (reading != buttonState)
+    {
+      buttonState = reading;
+      if (buttonState != 0)
+      {
+        btnValue = buttonState;
+      }
     }
-    myservo.write(pos);
-    Serial.println(pos);
   }
+  lastButtonState = reading;
+  return btnValue;
 }
 
-// Funcție pentru resetarea servomotorului la poziția inițială
-void servoOffGame() {
-  pos = 0;
-  myservo.write(0);
+// ISR (Interrupt Service Routine) pentru recepționarea mesajelor prin SPI
+ISR(SPI_STC_vect)
+{
+  slaveReceived = SPDR;   // Citește valoarea primită de la master
+  SPDR = slaveSend;       // Trimite valoarea către master
+  received = true;        // Setează flag-ul de recepție
 }
 
-
+// Funcția de setup
 void setup() {
-  Serial.begin(BAUD_RATE);
-  randomSeed(analogRead(0)); // Inițializare pentru generarea numerelor aleatorii
-  SPI.begin();
-  SPI.setClockDivider(SPI_CLOCK_DIV8);
-  SPI.setDataMode(SPI_MODE0);
-  pinMode(SS, OUTPUT);
-  digitalWrite(SS, HIGH);
-  myservo.attach(6);
-  lcd.begin(16, 2);
-  lcd.createChar(0, trophy);
-  lcd.createChar(1, arrow);
+  Serial.begin(BAUD_RATE); // Inițializează comunicarea serială
+  randomSeed(analogRead(0)); // Inițializează un seed aleator pentru random()
 
-  player[0].name = "P1"; // Inițializare nume jucători
-  player[0].points = 0;
-  player[1].name = "P2";
-  player[1].points = 0;
+  pinMode(MISO, OUTPUT); // Pinul MISO trebuie să fie setat pe OUTPUT
+  SPCR |= _BV(SPE);      // Activează modul SPI slave
+  received = false;
+  SPI.attachInterrupt(); // Activează întreruperea SPI
 
-  randomRgb = random() % 3; // Generare culoare aleatorie
-  myservo.write(0); // Setare poziție de start pentru servomotor
-  delay(1000);
-  gameStartTime = millis(); // Înregistrare timp de start al jocului
+  // Setează pinii pentru LED-uri ca OUTPUT
+  pinMode(LED_RGB1_R, OUTPUT);
+  pinMode(LED_RGB1_G, OUTPUT);
+  pinMode(LED_RGB1_B, OUTPUT);
+  pinMode(LED_RGB2_R, OUTPUT);
+  pinMode(LED_RGB2_G, OUTPUT);
+  pinMode(LED_RGB2_B, OUTPUT);
+  pinMode(LED_P1_R, OUTPUT);
+  pinMode(LED_P1_G, OUTPUT);
+  pinMode(LED_P1_B, OUTPUT);
+  pinMode(LED_P2_R, OUTPUT);
+  pinMode(LED_P2_G, OUTPUT);
+  pinMode(LED_P2_B, OUTPUT);
+  pinMode(A0, INPUT); // Setează pinul pentru butoane ca INPUT
 }
 
+// Funcția principală loop
 void loop() {
-  if (!gameOn) {
-    displayInGame(player[0], player[1], 0); // Afișare stare inițială pe LCD
-    digitalWrite(SS, LOW);
-    masterSend = IGNORE;
-    masteReceive = SPI.transfer(masterSend);
-    digitalWrite(SS, HIGH);
-    if (masteReceive == GAME_START) {
-      player[0].points = 0;
-      player[1].points = 0;
-      gameStartTime = millis();
-      gameOn = 1;
+  long int lastMillis = millis();
+  int btnValue = analogRead(BUTTONS_PIN); // Citește valoarea de la buton
+
+  if (!gameOn) { // Dacă jocul este oprit
+    Serial.print("OFF --- receive:");
+    Serial.print(slaveReceived);
+    Serial.print(" | send:");
+    Serial.println(slaveSend);
+    setLedColor(2, 0, 0, 0);
+    setLedColor(0, 0, 0, 0);
+    setLedColor(3, 0, 0, 0);
+    setLedColor(1, 0, 0, 0);
+    if (btnValue > parasitVoltage) {
+      gameOn = 1; // Pornește jocul
+      slaveSend = GAME_START;
+      delayMillis(5000);
     }
-  } else {
-    currentRoundTime = millis();
-    if (currentRoundTime - lastRoundTime >= ROND_DURATION) {
-      lastPlayerRound = playerRouond;
-      playerRouond = (playerRouond + 1) % 2;
-      randomRgb = random() % 3;
-      lastRoundTime = millis();
+  } else { // Dacă jocul este pornit
+    Serial.print("ON ---  receive:");
+    Serial.print(slaveReceived);
+    Serial.print(" | send:");
+    Serial.println(slaveSend);
+
+    // Control LED-uri pe baza valorii recepționate prin SPI
+    if (slaveReceived >= SPI_RGB1_R && slaveReceived <= SPI_RGB1_B) {
+      setLedColor(3, 0, 0, 0);
+      setLedColor(1, 0, 0, 0);
+    } else if (slaveReceived >= SPI_RGB2_R && slaveReceived <= SPI_RGB2_B) {
+      setLedColor(2, 0, 0, 0);
+      setLedColor(0, 0, 0, 0);
     }
-    servoOnGame(GAME_DURATION);
-    currentRoundTime = millis();
-    if (currentRoundTime - gameStartTime >= GAME_DURATION * SECOND) {
-      gameOn = 0;
-      servoOffGame();
+
+    switch (slaveReceived) {
+      case SPI_RGB1_R:
+        setLedColor(0, 1, 0, 0);
+        correctLed = SPI_BTN1_R;
+        break;
+      case SPI_RGB1_G:
+        setLedColor(0, 0, 1, 0);
+        correctLed = SPI_RGB1_G;
+        break;
+      case SPI_RGB1_B:
+        setLedColor(0, 0, 0, 1);
+        correctLed = SPI_RGB1_B;
+        break;
+      case SPI_RGB2_R:
+        setLedColor(1, 1, 0, 0);
+        correctLed = SPI_RGB2_R;
+        break;
+      case SPI_RGB2_G:
+        setLedColor(1, 0, 1, 0);
+        correctLed = SPI_RGB2_G;
+        break;
+      case SPI_RGB2_B:
+        setLedColor(1, 0, 0, 1);
+        correctLed = SPI_RGB2_B;
+        break;
+      case GAME_STOP:
+        gameOn = 0;
+        break;
+      case IGNORE:
+        break;
+      default:
+        Serial.print(" /_> ERROR/GARBAGE Unknown value send by master");
+        setLedColor(0, 1, 1, 1);
+        setLedColor(1, 1, 1, 1);
+        break;
+    }
+
+    if (btnValue > parasitVoltage) {
+      if (btnValue < BTN_V_P2_R) {
+        setLedColor(3, 1, 0, 0);
+        collorGuessed = SPI_RGB2_R;
+      } else if (btnValue < BTN_V_P2_G) {
+        setLedColor(3, 0, 1, 0);
+        collorGuessed = SPI_RGB2_G;
+      } else if (btnValue < BTN_V_P2_B) {
+        setLedColor(3, 0, 0, 1);
+        collorGuessed = SPI_RGB2_B;
+      } else if (btnValue < BTN_V_P1_B) {
+        setLedColor(2, 0, 0, 1);
+        collorGuessed = SPI_RGB1_B;
+      } else if (btnValue < BTN_V_P1_G) {
+        setLedColor(2, 0, 1, 0);
+        collorGuessed = SPI_RGB1_G;
+      } else if (btnValue < BTN_V_P1_R) {
+        setLedColor(2, 1, 0, 0);
+        collorGuessed = SPI_RGB1_R;
+      }
+    }
+
+    Serial.print("================================");
+    Serial.println(collorGuessed);
+    if (collorGuessed == correctLed) {
+      slaveSend = collorGuessed; // Salvează valoarea ghicită
+      collorGuessed = IGNORE;
     }
   }
+
+  delayMillis(500); // Delay pentru controlul ciclului
 }
