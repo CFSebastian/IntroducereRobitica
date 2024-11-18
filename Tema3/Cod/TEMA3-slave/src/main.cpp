@@ -175,12 +175,6 @@ void loop()
   }
   else
   {
-    // slaveSend = IGNORE;
-    /*Serial.print("ON ---  receive:");
-    Serial.print(slaveReceived);
-    Serial.print(" | send:");
-    Serial.println(slaveSend);*/
-    // dont let wrong player led stay on
     if (slaveReceived >= SPI_RGB1_R && slaveReceived <= SPI_RGB1_B)
     {
       setLedColor(3, 0, 0, 0);
@@ -283,12 +277,6 @@ void loop()
     else
     {
       slaveSend = IGNORE;
-      // collorGuessed = IGNORE;
     }
-    /*if (slaveSend != GAME_START && slaveSend != IGNORE) {
-    slaveSend = IGNORE;
-    }*/
   }
-  // for debug:
-  // delayMillis(100);
 }
