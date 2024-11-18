@@ -1,9 +1,9 @@
+
 #include <Arduino.h>
-#include <SPI.h> // Include librăria SPI pentru comunicare SPI
+#include <SPI.h>
 
-#define BAUD_RATE 9600 // Setează viteza de comunicare serială
+#define BAUD_RATE 9600
 
-// Definire pinii pentru LED-urile RGB (valori SPI de trimis/recepționat)
 #define SPI_RGB1_R 1
 #define SPI_RGB1_G 2
 #define SPI_RGB1_B 3
@@ -11,7 +11,6 @@
 #define SPI_RGB2_G 5
 #define SPI_RGB2_B 6
 
-// Definire pinii pentru butoanele RGB (valori SPI)
 #define SPI_BTN1_R 11
 #define SPI_BTN1_G 12
 #define SPI_BTN1_B 13
@@ -19,62 +18,64 @@
 #define SPI_BTN2_G 15
 #define SPI_BTN2_B 16
 
-#define GAME_START 21 // Comandă pentru pornirea jocului
-#define GAME_STOP 20  // Comandă pentru oprirea jocului
-#define IGNORE 23     // Valoare pentru ignorare
-
-// Definire pinii pentru controlul LED-urilor RGB
+#define GAME_START 21
+#define GAME_STOP 20
+#define IGNORE 23
+// RGB LEDS
 #define LED_RGB1_R 5
 #define LED_RGB1_G 4
 #define LED_RGB1_B 3
 #define LED_RGB2_R 8
 #define LED_RGB2_G 7
 #define LED_RGB2_B 6
-
-// Definire pinii pentru LED-uri simple (dreapta și stânga)
-#define LED_P1_R A1 // LED dreapta - roșu
-#define LED_P1_G A2 // LED dreapta - verde
-#define LED_P1_B A3 // LED dreapta - albastru
-#define LED_P2_R 2  // LED stânga - roșu
-#define LED_P2_G A4 // LED stânga - verde
-#define LED_P2_B A5 // LED stânga - albastru
-
-// Pin pentru citirea butoanelor analogice
+// Simple Leds
+// dreapta
+#define LED_P1_R A1
+#define LED_P1_G A2
+#define LED_P1_B A3
+// stanga
+#define LED_P2_R 2
+#define LED_P2_G A4
+#define LED_P2_B A5
+// Buttons
 #define BUTTONS_PIN A0
-
-// Valorile maxime de tensiune (cu marja de +40 pentru interferențe LED-uri)
-#define BTN_V_P1_R 2000
+// max values(+40 for inteferences from the leds)
+#define BTN_V_P1_R 1000
 #define BTN_V_P1_G 500
 #define BTN_V_P1_B 390
 #define BTN_V_P2_R 130
 #define BTN_V_P2_G 195
 #define BTN_V_P2_B 275
 
-volatile boolean received;       // Variabilă pentru a indica dacă un mesaj SPI a fost primit
-volatile byte slaveReceived;     // Variabilă pentru valoarea primită de la master
-volatile byte slaveSend = IGNORE; // Valoarea de trimis către master
+volatile boolean received;
+volatile byte slaveReceived, slaveSend = IGNORE;
 int x;
-bool gameOn = 0;                // Starea jocului (0 = oprit, 1 = pornit)
-int correctLed = 0;             // LED-ul corect care trebuie ghicit
-int collorGuessed = IGNORE;     // Culoarea ghicită
+bool gameOn = 0;
+int correctLed = 0;
+int collorGuessed = IGNORE;
 int rgbLed;
-int parasitVoltage = 50;        // Valoare pentru filtrarea tensiunii (0 - ~36)
+int parasitVoltage = 50; // can take values betwin 0 - ~36
+/*
+NOTA: Arduino guves voltage on 0 and 1
+*/
 
-// Variabile pentru debouncing-ul butoanelor
 int buttonState;
 int lastButtonState = 0;
 unsigned long lastDebounceTime = 0;
 unsigned long debounceDelay = 50;
-
-// Funcție pentru delay
+// delay with millis
 void delayMillis(unsigned long milliseconds)
 {
   unsigned long currentTimeDelay = millis();
   unsigned long goalTimeDelay = currentTimeDelay + milliseconds;
-  while (millis() <= goalTimeDelay);
-}
 
-// Funcție pentru setarea culorii LED-urilor
+  while (millis() <= goalTimeDelay)
+    ;
+}
+/*
+Set the RGB leds color or a group of leds color
+ledGroup: 0-RGB player 1; 1-RGB player 2; 2-leds player 1; 3-leds player 2
+*/
 void setLedColor(int ledGroup, bool red, bool green, bool blue)
 {
   switch (ledGroup)
@@ -99,7 +100,8 @@ void setLedColor(int ledGroup, bool red, bool green, bool blue)
     digitalWrite(LED_P2_G, green);
     digitalWrite(LED_P2_B, blue);
     break;
-  default: // Dacă apare o eroare
+
+  default: // error
     digitalWrite(LED_RGB1_R, 1);
     digitalWrite(LED_RGB1_G, 1);
     digitalWrite(LED_RGB1_B, 1);
@@ -110,69 +112,48 @@ void setLedColor(int ledGroup, bool red, bool green, bool blue)
   }
 }
 
-// Funcție pentru debouncing-ul unui buton
-int debounce(uint8_t btn)
-{
-  int btnValue;
-  int reading = analogRead(btn);
-  if (reading != lastButtonState) {
-    lastDebounceTime = millis();
-  }
-  if ((millis() - lastDebounceTime) > debounceDelay)
-  {
-    if (reading != buttonState)
-    {
-      buttonState = reading;
-      if (buttonState != 0)
-      {
-        btnValue = buttonState;
-      }
-    }
-  }
-  lastButtonState = reading;
-  return btnValue;
-}
-
-// ISR (Interrupt Service Routine) pentru recepționarea mesajelor prin SPI
 ISR(SPI_STC_vect)
 {
-  slaveReceived = SPDR;   // Citește valoarea primită de la master
-  SPDR = slaveSend;       // Trimite valoarea către master
-  received = true;        // Setează flag-ul de recepție
+  slaveReceived = SPDR;
+  SPDR = slaveSend;
+  received = true;
 }
+void setup()
+{
 
-// Funcția de setup
-void setup() {
-  Serial.begin(BAUD_RATE); // Inițializează comunicarea serială
-  randomSeed(analogRead(0)); // Inițializează un seed aleator pentru random()
+  Serial.begin(BAUD_RATE);
 
-  pinMode(MISO, OUTPUT); // Pinul MISO trebuie să fie setat pe OUTPUT
-  SPCR |= _BV(SPE);      // Activează modul SPI slave
+  randomSeed(analogRead(0));
+
+  pinMode(MISO, OUTPUT);
+  SPCR |= _BV(SPE);
   received = false;
-  SPI.attachInterrupt(); // Activează întreruperea SPI
+  SPI.attachInterrupt();
 
-  // Setează pinii pentru LED-uri ca OUTPUT
   pinMode(LED_RGB1_R, OUTPUT);
   pinMode(LED_RGB1_G, OUTPUT);
   pinMode(LED_RGB1_B, OUTPUT);
   pinMode(LED_RGB2_R, OUTPUT);
   pinMode(LED_RGB2_G, OUTPUT);
   pinMode(LED_RGB2_B, OUTPUT);
+
   pinMode(LED_P1_R, OUTPUT);
   pinMode(LED_P1_G, OUTPUT);
   pinMode(LED_P1_B, OUTPUT);
   pinMode(LED_P2_R, OUTPUT);
   pinMode(LED_P2_G, OUTPUT);
   pinMode(LED_P2_B, OUTPUT);
-  pinMode(A0, INPUT); // Setează pinul pentru butoane ca INPUT
+
+  pinMode(A0, INPUT); // Butoane
 }
 
-// Funcția principală loop
-void loop() {
+void loop()
+{
   long int lastMillis = millis();
-  int btnValue = analogRead(BUTTONS_PIN); // Citește valoarea de la buton
-
-  if (!gameOn) { // Dacă jocul este oprit
+  int btnValue = analogRead(BUTTONS_PIN);
+  if (!gameOn)
+  {
+    // GAME OFF logic
     Serial.print("OFF --- receive:");
     Serial.print(slaveReceived);
     Serial.print(" | send:");
@@ -181,92 +162,133 @@ void loop() {
     setLedColor(0, 0, 0, 0);
     setLedColor(3, 0, 0, 0);
     setLedColor(1, 0, 0, 0);
-    if (btnValue > parasitVoltage) {
-      gameOn = 1; // Pornește jocul
+    if (btnValue > parasitVoltage)
+    { // if any butten is presed
+      gameOn = 1;
       slaveSend = GAME_START;
       delayMillis(5000);
     }
-  } else { // Dacă jocul este pornit
-    Serial.print("ON ---  receive:");
+    else
+    {
+      slaveSend = IGNORE;
+    }
+  }
+  else
+  {
+    // slaveSend = IGNORE;
+    /*Serial.print("ON ---  receive:");
     Serial.print(slaveReceived);
     Serial.print(" | send:");
-    Serial.println(slaveSend);
-
-    // Control LED-uri pe baza valorii recepționate prin SPI
-    if (slaveReceived >= SPI_RGB1_R && slaveReceived <= SPI_RGB1_B) {
+    Serial.println(slaveSend);*/
+    // dont let wrong player led stay on
+    if (slaveReceived >= SPI_RGB1_R && slaveReceived <= SPI_RGB1_B)
+    {
       setLedColor(3, 0, 0, 0);
       setLedColor(1, 0, 0, 0);
-    } else if (slaveReceived >= SPI_RGB2_R && slaveReceived <= SPI_RGB2_B) {
+    }
+    else if (slaveReceived >= SPI_RGB2_R && slaveReceived <= SPI_RGB2_B)
+    {
       setLedColor(2, 0, 0, 0);
       setLedColor(0, 0, 0, 0);
     }
-
-    switch (slaveReceived) {
-      case SPI_RGB1_R:
-        setLedColor(0, 1, 0, 0);
-        correctLed = SPI_BTN1_R;
-        break;
-      case SPI_RGB1_G:
-        setLedColor(0, 0, 1, 0);
-        correctLed = SPI_RGB1_G;
-        break;
-      case SPI_RGB1_B:
-        setLedColor(0, 0, 0, 1);
-        correctLed = SPI_RGB1_B;
-        break;
-      case SPI_RGB2_R:
-        setLedColor(1, 1, 0, 0);
-        correctLed = SPI_RGB2_R;
-        break;
-      case SPI_RGB2_G:
-        setLedColor(1, 0, 1, 0);
-        correctLed = SPI_RGB2_G;
-        break;
-      case SPI_RGB2_B:
-        setLedColor(1, 0, 0, 1);
-        correctLed = SPI_RGB2_B;
-        break;
-      case GAME_STOP:
-        gameOn = 0;
-        break;
-      case IGNORE:
-        break;
-      default:
-        Serial.print(" /_> ERROR/GARBAGE Unknown value send by master");
-        setLedColor(0, 1, 1, 1);
-        setLedColor(1, 1, 1, 1);
-        break;
+    // slaveSend = IGNORE;
+    switch (slaveReceived) // set the color that neeeds to be activated
+    {
+    case SPI_RGB1_R:
+      setLedColor(0, 1, 0, 0);
+      correctLed = SPI_RGB1_R;
+      break;
+    case SPI_RGB1_G:
+      setLedColor(0, 0, 1, 0);
+      correctLed = SPI_RGB1_G;
+      break;
+    case SPI_RGB1_B:
+      setLedColor(0, 0, 0, 1);
+      correctLed = SPI_RGB1_B;
+      break;
+    case SPI_RGB2_R:
+      setLedColor(1, 1, 0, 0);
+      correctLed = SPI_RGB2_R;
+      break;
+    case SPI_RGB2_G:
+      setLedColor(1, 0, 1, 0);
+      correctLed = SPI_RGB2_G;
+      break;
+    case SPI_RGB2_B:
+      setLedColor(1, 0, 0, 1);
+      correctLed = SPI_RGB2_B;
+      break;
+    case GAME_STOP:
+      gameOn = 0;
+      break;
+    case IGNORE:
+      break;
+    default:
+      Serial.print(" /_> ERROR/GARBAGE Unknown value send by master");
+      setLedColor(0, 1, 1, 1);
+      setLedColor(1, 1, 1, 1);
+      break;
     }
-
-    if (btnValue > parasitVoltage) {
-      if (btnValue < BTN_V_P2_R) {
+    // slaveSend = IGNORE;
+    if (btnValue > parasitVoltage)
+    { // get the preset button value
+      if (btnValue < BTN_V_P2_R)
+      {
         setLedColor(3, 1, 0, 0);
         collorGuessed = SPI_RGB2_R;
-      } else if (btnValue < BTN_V_P2_G) {
+      }
+      else if (btnValue < BTN_V_P2_G)
+      {
         setLedColor(3, 0, 1, 0);
         collorGuessed = SPI_RGB2_G;
-      } else if (btnValue < BTN_V_P2_B) {
+      }
+      else if (btnValue < BTN_V_P2_B)
+      {
         setLedColor(3, 0, 0, 1);
         collorGuessed = SPI_RGB2_B;
-      } else if (btnValue < BTN_V_P1_B) {
+      }
+      else if (btnValue < BTN_V_P1_B)
+      {
         setLedColor(2, 0, 0, 1);
         collorGuessed = SPI_RGB1_B;
-      } else if (btnValue < BTN_V_P1_G) {
+      }
+      else if (btnValue < BTN_V_P1_G)
+      {
         setLedColor(2, 0, 1, 0);
         collorGuessed = SPI_RGB1_G;
-      } else if (btnValue < BTN_V_P1_R) {
+      }
+      else if (btnValue < BTN_V_P1_R)
+      {
         setLedColor(2, 1, 0, 0);
         collorGuessed = SPI_RGB1_R;
       }
     }
+    // for debug:
+    Serial.print("btnValue: ");
+    Serial.print(btnValue);
 
-    Serial.print("================================");
-    Serial.println(collorGuessed);
-    if (collorGuessed == correctLed) {
-      slaveSend = collorGuessed; // Salvează valoarea ghicită
+    Serial.print(" | collorGuessed: ");
+    Serial.print(collorGuessed);
+
+    Serial.print(" | correctLed: ");
+    Serial.print(correctLed);
+
+    Serial.print(" | slaveSend: ");
+    Serial.println(slaveSend);
+    if (collorGuessed == correctLed)
+    {                            // if the botton presed is coresponding to the right collor
+      slaveSend = collorGuessed; // se pastreaza in memorie
       collorGuessed = IGNORE;
     }
+    else
+    {
+      slaveSend = IGNORE;
+      // collorGuessed = IGNORE;
+    }
+    /*if (slaveSend != GAME_START && slaveSend != IGNORE) {
+    slaveSend = IGNORE;
+    }*/
   }
-
-  delayMillis(500); // Delay pentru controlul ciclului
+  // for debug:
+  // delayMillis(100);
 }
