@@ -100,7 +100,6 @@ ISR (SPI_STC_vect): Această funcție este apelată automat atunci când slave p
 ![WhatsApp Image 2024-11-18 at 19 15 24_4abbd96e](https://github.com/user-attachments/assets/8106c26a-48a0-4953-8b5c-168f132674d9)
 ![WhatsApp Image 2024-11-18 at 19 15 24_2098d2da](https://github.com/user-attachments/assets/3a2d4eae-3b2a-44be-916d-38a9080414b5)
 ![WhatsApp Image 2024-11-18 at 19 15 24_f6e21fb1](https://github.com/user-attachments/assets/54ca3936-3cac-4d0a-82c1-593f9caea381)
-[Link Tinkercad]([https://youtu.be/6Zd-KeOgaac](https://www.tinkercad.com/things/3RnetCqzFdo-fantastic-jaiks-bigery))
 
 # Video cu functionalitatea montajului fizic
 [Watch video here!](https://youtu.be/6Zd-KeOgaac)
