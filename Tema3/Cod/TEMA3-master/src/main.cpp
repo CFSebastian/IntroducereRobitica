@@ -262,8 +262,7 @@ void setup()
 
 void loop()
 {
-  // for debug:
-  // servoOnGame(GAME_DURATION);
+
   if (!gameOn)
   {
     // Game OFF logic
@@ -373,15 +372,4 @@ void loop()
       gameOn = 0;
     }
   }
-  // for debug:
-  // displayCountdown();
-  // servoOnGame(ROND_DURATION);
-  /* Serial.print(millis());
-   delay(500);
-   Serial.print(" | ");
-   Serial.println(millis());
-   delay(500);*/
-  /*byte masterSend,masteReceive;
-   */
-  // delayMillis(100);
 }
