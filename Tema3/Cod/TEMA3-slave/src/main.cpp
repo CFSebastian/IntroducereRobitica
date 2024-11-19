@@ -166,7 +166,6 @@ void loop()
     { // if any butten is presed
       gameOn = 1;
       slaveSend = GAME_START;
-      delayMillis(5000);
     }
     else
     {
