@@ -28,7 +28,8 @@
 #define IGNORE 23
 
 #define SECOND 1000         // second in milis
-#define GAME_DURATION 100   // secunde
+#define SECONDS_10 10         // seconds
+#define GAME_DURATION 100   // seconds
 #define ROND_DURATION 10000 // milisecond
 #define END_ROTATION 180
 #define START_ROTATION 0
@@ -368,7 +369,7 @@ void loop()
     if ((currentRoundTime - gameStartTime) / SECOND >= GAME_DURATION)
     { // if game went on long enough
       displayInGame(player[0], player[1], 3);
-      delayMillis(10 * SECOND);
+      delayMillis(SECONDS_10 * SECOND);
       masterSend = GAME_STOP;
       gameOn = 0;
     }
