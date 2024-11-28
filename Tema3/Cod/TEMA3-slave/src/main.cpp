@@ -1,4 +1,3 @@
-
 #include <Arduino.h>
 #include <SPI.h>
 
@@ -28,7 +27,7 @@
 #define LED_RGB2_R 8
 #define LED_RGB2_G 7
 #define LED_RGB2_B 6
-// Simple Leds
+// Simple LEDs
 // dreapta
 #define LED_P1_R A1
 #define LED_P1_G A2
@@ -39,7 +38,7 @@
 #define LED_P2_B A5
 // Buttons
 #define BUTTONS_PIN A0
-// max values(+40 for inteferences from the leds)
+// max values (+40 for interferences from the LEDs)
 #define BTN_V_P1_R 1000
 #define BTN_V_P1_G 500
 #define BTN_V_P1_B 390
@@ -52,11 +51,11 @@ volatile byte slaveReceived, slaveSend = IGNORE;
 int x;
 bool gameOn = 0;
 int correctLed = 0;
-int collorGuessed = IGNORE;
+int colorGuessed = IGNORE;
 int rgbLed;
-int parasitVoltage = 50; // can take values betwin 0 - ~36
+int parasitVoltage = 50; // can take values between 0 - ~36
 /*
-NOTA: Arduino guves voltage on 0 and 1
+NOTE: Arduino gives voltage on 0 and 1
 */
 
 int buttonState;
@@ -73,8 +72,8 @@ void delayMillis(unsigned long milliseconds)
     ;
 }
 /*
-Set the RGB leds color or a group of leds color
-ledGroup: 0-RGB player 1; 1-RGB player 2; 2-leds player 1; 3-leds player 2
+Set the RGB LEDs color or a group of LEDs color
+ledGroup: 0-RGB player 1; 1-RGB player 2; 2-LEDs player 1; 3-LEDs player 2
 */
 void setLedColor(int ledGroup, bool red, bool green, bool blue)
 {
@@ -144,7 +143,7 @@ void setup()
   pinMode(LED_P2_G, OUTPUT);
   pinMode(LED_P2_B, OUTPUT);
 
-  pinMode(A0, INPUT); // Butoane
+  pinMode(A0, INPUT); // Buttons
 }
 
 void loop()
@@ -163,7 +162,7 @@ void loop()
     setLedColor(3, 0, 0, 0);
     setLedColor(1, 0, 0, 0);
     if (btnValue > parasitVoltage)
-    { // if any butten is presed
+    { // if any button is pressed
       gameOn = 1;
       slaveSend = GAME_START;
     }
@@ -185,7 +184,7 @@ void loop()
       setLedColor(0, 0, 0, 0);
     }
     // slaveSend = IGNORE;
-    switch (slaveReceived) // set the color that neeeds to be activated
+    switch (slaveReceived) // set the color that needs to be activated
     {
     case SPI_RGB1_R:
       setLedColor(0, 1, 0, 0);
@@ -217,7 +216,7 @@ void loop()
     case IGNORE:
       break;
     default:
-      Serial.print(" /_> ERROR/GARBAGE Unknown value send by master");
+      Serial.print(" /_> ERROR/GARBAGE Unknown value sent by master");
       setLedColor(0, 1, 1, 1);
       setLedColor(1, 1, 1, 1);
       break;
@@ -228,50 +227,50 @@ void loop()
       if (btnValue < BTN_V_P2_R)
       {
         setLedColor(3, 1, 0, 0);
-        collorGuessed = SPI_RGB2_R;
+        colorGuessed = SPI_RGB2_R;
       }
       else if (btnValue < BTN_V_P2_G)
       {
         setLedColor(3, 0, 1, 0);
-        collorGuessed = SPI_RGB2_G;
+        colorGuessed = SPI_RGB2_G;
       }
       else if (btnValue < BTN_V_P2_B)
       {
         setLedColor(3, 0, 0, 1);
-        collorGuessed = SPI_RGB2_B;
+        colorGuessed = SPI_RGB2_B;
       }
       else if (btnValue < BTN_V_P1_B)
       {
         setLedColor(2, 0, 0, 1);
-        collorGuessed = SPI_RGB1_B;
+        colorGuessed = SPI_RGB1_B;
       }
       else if (btnValue < BTN_V_P1_G)
       {
         setLedColor(2, 0, 1, 0);
-        collorGuessed = SPI_RGB1_G;
+        colorGuessed = SPI_RGB1_G;
       }
       else if (btnValue < BTN_V_P1_R)
       {
         setLedColor(2, 1, 0, 0);
-        collorGuessed = SPI_RGB1_R;
+        colorGuessed = SPI_RGB1_R;
       }
     }
     // for debug:
     Serial.print("btnValue: ");
     Serial.print(btnValue);
 
-    Serial.print(" | collorGuessed: ");
-    Serial.print(collorGuessed);
+    Serial.print(" | colorGuessed: ");
+    Serial.print(colorGuessed);
 
     Serial.print(" | correctLed: ");
     Serial.print(correctLed);
 
     Serial.print(" | slaveSend: ");
     Serial.println(slaveSend);
-    if (collorGuessed == correctLed)
-    {                            // if the botton presed is coresponding to the right collor
-      slaveSend = collorGuessed; // se pastreaza in memorie
-      collorGuessed = IGNORE;
+    if (colorGuessed == correctLed)
+    {                            // if the button pressed corresponds to the right color
+      slaveSend = colorGuessed; // se pastreaza in memorie
+      colorGuessed = IGNORE;
     }
     else
     {
